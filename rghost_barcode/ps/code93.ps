@@ -1,0 +1,117 @@
+
+% --DESC: Code 93
+% --EXAM: THIS IS CODE 93
+% --EXOP: includetext includecheck
+% --RNDR: renlinear
+/code93 {
+
+    0 begin                 % Confine variables to local scope
+
+    /options exch def       % We are given an option string
+    /useropts options def
+    /barcode exch def       % We are given a barcode string
+
+    /includecheck false def  % Enable/disable checkdigit
+    /includetext false def   % Enable/disable text
+    /textfont /Courier def
+    /textsize 10 def
+    /textyoffset -7 def
+    /height 1 def
+    
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    
+    /textfont textfont cvlit def
+    /textsize textsize cvr def
+    /textyoffset textyoffset cvr def
+    /height height cvr def
+    
+    /encs
+    [ (131112) (111213) (111312) (111411) (121113)
+      (121212) (121311) (111114) (131211) (141111)
+      (211113) (211212) (211311) (221112) (221211)
+      (231111) (112113) (112212) (112311) (122112)
+      (132111) (111123) (111222) (111321) (121122)
+      (131121) (212112) (212211) (211122) (211221)
+      (221121) (222111) (112122) (112221) (122121)
+      (123111) (121131) (311112) (311211) (321111)
+      (112131) (113121) (211131) (121221) (312111)
+      (311121) (122211) (111141) (1111411)
+    ] def
+
+    % Create a string of the available characters
+    /barchars (0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%) def
+
+    /barlen barcode length def  % Length of the code    
+    barcode {
+        (^) search false eq {pop exit} if
+        pop pop /barlen barlen 3 sub def
+    } loop
+
+    includecheck {
+        /sbs barlen 6 mul 25 add string def
+    } {
+        /sbs barlen 6 mul 13 add string def
+    } ifelse
+    /txt barlen array def
+    
+    % Put the start character
+    sbs 0 encs 47 get putinterval
+    
+    /checksum1 0 def /checksum2 0 def
+
+    /i 0 def /j 0 def
+    { % loop
+        j barlen eq {exit} if
+        barcode i 1 getinterval (^) eq {
+            % indx is given by the next three characters
+            /indx barcode i 1 add 3 getinterval cvi def
+            txt j [( ) j 9 mul 9 add textyoffset textfont textsize] put
+            /i i 4 add def
+        } {
+            barchars barcode i 1 getinterval search
+            pop                         % Discard true leaving pre
+            length /indx exch def       % indx is the length of pre
+            pop pop                     % Discard seek and post
+            txt j [barchars indx 1 getinterval j 9 mul 9 add textyoffset textfont textsize] put
+            /i i 1 add def
+        } ifelse
+        /enc encs indx get def             % Get the indxth encoding
+        sbs j 6 mul 6 add enc putinterval  % Put encoded digit into sbs
+        /checksum1 checksum1 barlen j sub 1 sub 20 mod 1 add indx mul add def
+        /checksum2 checksum2 barlen j sub 15 mod 1 add indx mul add def
+        /j j 1 add def
+    } loop
+    
+    includecheck {
+        % Put the first checksum character
+        /checksum1 checksum1 47 mod def
+        /checksum2 checksum2 checksum1 add 47 mod def
+        sbs j 6 mul 6 add encs checksum1 get putinterval
+        sbs j 6 mul 12 add encs checksum2 get putinterval
+        % Put the end character
+        sbs j 6 mul 18 add encs 48 get putinterval
+    } {
+        % Put the end character
+        sbs j 6 mul 6 add encs 48 get putinterval      
+    } ifelse
+
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) [sbs {48 sub} forall] put
+    retval (bhs) [sbs length 1 add 2 idiv {height} repeat] put
+    retval (bbs) [sbs length 1 add 2 idiv {0} repeat] put
+    includetext {
+        retval (txt) txt put
+    } if
+    retval (opt) useropts put
+    retval
+
+    end
+
+} bind def
+/code93 load 0 1 dict put

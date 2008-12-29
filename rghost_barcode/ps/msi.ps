@@ -1,0 +1,104 @@
+
+% --DESC: MSI Modified Plessey
+% --EXAM: 0123456789
+% --EXOP: includetext includecheck includecheckintext
+% --RNDR: renlinear
+/msi {
+
+    0 begin                 % Confine variables to local scope
+
+    /options exch def       % We are given an option string
+    /useropts options def
+    /barcode exch def       % We are given a barcode string
+
+    /includecheck false def  % Enable/disable checkdigit
+    /includetext false def   % Enable/disable text
+    /includecheckintext false def
+    /textfont /Courier def
+    /textsize 10 def
+    /textyoffset -7 def
+    /height 1 def
+    
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    
+    /textfont textfont cvlit def
+    /textsize textsize cvr def
+    /textyoffset textyoffset cvr def
+    /height height cvr def
+    
+    % Create an array containing the character mappings
+    /encs
+    [ (13131313) (13131331) (13133113) (13133131) (13311313)
+      (13311331) (13313113) (13313131) (31131313) (31131331)
+      (31) (131)
+    ] def
+
+    % Create a string of the available characters
+    /barchars (0123456789) def
+
+    /barlen barcode length def     % Length of the code
+
+    includecheck {
+        /sbs barlen 8 mul 13 add string def
+        /txt barlen 1 add array def
+    } {
+        /sbs barlen 8 mul 5 add string def
+        /txt barlen array def
+    } ifelse
+
+
+    % Put start character
+    sbs 0 encs 10 get putinterval
+    /checksum 0 def
+
+    0 1 barlen 1 sub {
+        /i exch def
+        % Lookup the encoding for the each barcode character
+        barcode i 1 getinterval barchars exch search
+        pop                                % Discard true leaving pre
+        length /indx exch def              % indx is the length of pre
+        pop pop                            % Discard seek and post
+        /enc encs indx get def             % Get the indxth encoding
+        sbs i 8 mul 2 add enc putinterval  % Put encoded digit into sbs
+        txt i [barcode i 1 getinterval i 16 mul 4 add textyoffset textfont textsize] put
+        barlen i sub 2 mod 0 eq {
+            /checksum indx checksum add def
+        } {
+            /checksum indx 2 mul dup 10 idiv add checksum add def
+        } ifelse
+    } for
+
+    % Put the checksum and end characters
+    includecheck {
+        /checksum 10 checksum 10 mod sub 10 mod def
+        sbs barlen 8 mul 2 add encs checksum get putinterval
+        includecheckintext {
+            txt barlen [barchars checksum 1 getinterval barlen 16 mul 4 add textyoffset textfont textsize] put
+        } {
+            txt barlen [( ) barlen 16 mul 4 add textyoffset textfont textsize] put
+        } ifelse
+        sbs barlen 8 mul 10 add encs 11 get putinterval
+    } {
+        sbs barlen 8 mul 2 add encs 11 get putinterval
+    } ifelse
+
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) [sbs {48 sub} forall] put
+    retval (bhs) [sbs length 1 add 2 idiv {height} repeat] put
+    retval (bbs) [sbs length 1 add 2 idiv {0} repeat] put
+    includetext {
+        retval (txt) txt put
+    } if
+    retval (opt) useropts put
+    retval
+
+    end
+
+} bind def
+/msi load 0 1 dict put

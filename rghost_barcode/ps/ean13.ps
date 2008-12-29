@@ -1,0 +1,183 @@
+%!PS-Adobe-2.0
+%%Creator: Terry Burton
+%%DocumentPaperSizes: a4
+%%EndComments
+%%EndProlog
+
+% Barcode Writer in Pure PostScript - Version 2008-04-06-1
+% http://www.terryburton.co.uk/barcodewriter/
+%
+% Copyright (c) 2008 Terry Burton - tez@terryburton.co.uk
+%
+% Permission is hereby granted, free of charge, to any
+% person obtaining a copy of this software and associated
+% documentation files (the "Software"), to deal in the
+% Software without restriction, including without
+% limitation the rights to use, copy, modify, merge,
+% publish, distribute, sublicense, and/or sell copies of
+% the Software, and to permit persons to whom the Software
+% is furnished to do so, subject to the following
+% conditions:
+%
+% The above copyright notice and this permission notice
+% shall be included in all copies or substantial portions
+% of the Software.
+%
+% THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+% KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+% THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+% PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+% THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+% DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+% CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+% CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+% IN THE SOFTWARE.
+
+% Uncomment this next line to allow these procedure definitions to 
+% remain resident within a printer's PostScript virtual machine 
+% so that the barcode generation capability persists between jobs.
+
+% serverdict begin 0 exitserver 
+
+% --BEGIN TEMPLATE--
+
+% --DESC: EAN-13
+% --EXAM: 977147396801
+% --EXOP: includetext guardwhitespace
+% --RNDR: renlinear
+/ean13 {
+
+    0 begin
+
+    /options exch def                  % We are given an option string
+    /useropts options def
+    /barcode exch def                  % We are given a barcode string
+
+    /includetext false def             % Enable/disable text
+    /textfont /Helvetica def
+    /textsize 12 def
+    /textyoffset -4 def
+    /height 1 def
+    
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    
+    /textfont textfont cvlit def
+    /textsize textsize cvr def
+    /textyoffset textyoffset cvr def
+    /height height cvr def
+    
+    /barlen barcode length def         % Length of the code
+
+    % Add checksum digit to barcode if length is even
+    barlen 2 mod 0 eq {
+        /pad barlen 1 add string def   % Create pad one bigger than barcode
+        /checksum 0 def
+        0 1 barlen 1 sub {
+            /i exch def
+            /barchar barcode i get 48 sub def
+            i 2 mod 0 eq {
+                /checksum barchar checksum add def
+            } {
+                /checksum barchar 3 mul checksum add def
+            } ifelse
+        } for
+        /checksum 10 checksum 10 mod sub 10 mod def
+        pad 0 barcode putinterval       % Add barcode to the start of the pad
+        pad barlen checksum 48 add put  % Put ascii for checksum at end of pad
+        /barcode pad def                % barcode=pad
+        /barlen barlen 1 add def        % barlen++
+    } if
+
+    % Create an array containing the character mappings
+    /encs
+    [ (3211) (2221) (2122) (1411) (1132)
+      (1231) (1114) (1312) (1213) (3112)
+      (111) (11111) (111)
+    ] def
+
+    % Create a string of the available characters
+    /barchars (0123456789) def
+
+    % Digits to mirror on left side
+    /mirrormaps
+    [ (000000) (001011) (001101) (001110) (010011)
+      (011001) (011100) (010101) (010110) (011010)
+    ] def
+
+    /sbs barlen 1 sub 4 mul 11 add string def
+    /txt barlen array def
+  
+    % Put the start character
+    sbs 0 encs 10 get putinterval
+
+    % First digit - determine mirrormap by this and show before guard bars
+    /mirrormap mirrormaps barcode 0 get 48 sub get def
+    txt 0 [barcode 0 1 getinterval -10 textyoffset textfont textsize] put
+
+    % Left side - performs mirroring
+    1 1 6 {
+        % Lookup the encoding for the each barcode character
+        /i exch def
+        barcode i 1 getinterval barchars exch search
+        pop                            % Discard true leaving pre
+        length /indx exch def          % indx is the length of pre
+        pop pop                        % Discard seek and post
+        /enc encs indx get def         % Get the indxth encoding
+        mirrormap i 1 sub get 49 eq {   % Reverse enc if 1 in this position in mirrormap
+            /enclen enc length def
+            /revenc enclen string def
+            0 1 enclen 1 sub {
+                /j exch def
+                /char enc j get def
+                revenc enclen j sub 1 sub char put
+            } for
+            /enc revenc def
+        } if
+        sbs i 1 sub 4 mul 3 add enc putinterval   % Put encoded digit into sbs
+        txt i [barcode i 1 getinterval i 1 sub 7 mul 4 add textyoffset textfont textsize] put
+    } for
+
+    % Put the middle character
+    sbs 7 1 sub 4 mul 3 add encs 11 get putinterval
+
+    % Right side
+    7 1 12 {
+        % Lookup the encoding for the each barcode character
+        /i exch def
+        barcode i 1 getinterval barchars exch search
+        pop                            % Discard true leaving pre
+        length /indx exch def          % indx is the length of pre
+        pop pop                        % Discard seek and post
+        /enc encs indx get def         % Get the indxth encoding
+        sbs i 1 sub 4 mul 8 add enc putinterval  % Put encoded digit into sbs
+        txt i [barcode i 1 getinterval i 1 sub 7 mul 8 add textyoffset textfont textsize] put
+    } for
+
+    % Put the end character
+    sbs barlen 1 sub 4 mul 8 add encs 12 get putinterval
+    
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) [sbs {48 sub} forall] put
+    includetext {
+        retval (bhs) [height height 12{height .075 sub}repeat height height 12{height .075 sub}repeat height height] put
+        retval (bbs) [0 0 12{.075}repeat 0 0 12{.075}repeat 0 0] put
+        retval (txt) txt put
+    } {
+        retval (bhs) [30{height}repeat] put        
+        retval (bbs) [30{0}repeat] put
+    } ifelse
+    retval (opt) useropts put
+    retval (guardrightpos) 10 put
+    retval (borderbottom) 5 put
+    retval
+    
+    end
+
+} bind def
+/ean13 load 0 1 dict put

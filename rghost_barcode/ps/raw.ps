@@ -1,0 +1,35 @@
+
+% --DESC: Raw bar space succession for custom symbologies 
+% --EXAM: 331132131313411122131311333213114131131221323
+% --EXOP: height=0.5
+% --RNDR: renlinear
+/raw {
+
+    0 begin                  % Confine variables to local scope
+
+    /options exch def        % We are given an option string
+    /useropts options def
+    /sbs exch def        % We are given a barcode string
+
+    /height 1 def
+
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    /height height cvr def
+
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) [sbs {48 sub} forall] put
+    retval (bhs) [sbs length 1 add 2 idiv {height} repeat] put
+    retval (bbs) [sbs length 1 add 2 idiv {0} repeat] put 
+    retval (opt) useropts put
+    retval
+
+    end
+
+} bind def
+/raw load 0 1 dict put

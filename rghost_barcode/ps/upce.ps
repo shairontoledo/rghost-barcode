@@ -1,0 +1,157 @@
+
+% --DESC: UPC-E
+% --EXAM: 0123456
+% --EXOP: includetext height=0.4
+% --RNDR: renlinear
+/upce {
+
+    0 begin
+
+    /options exch def                   % We are given an option string
+    /useropts options def
+    /barcode exch def                   % We are given a barcode string
+
+    /includetext false def               % Enable/disable text
+    /textfont /Helvetica def
+    /textsize 12 def
+    /textyoffset -4 def
+    /height 1 def
+    
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    
+    /textfont textfont cvlit def
+    /textsize textsize cvr def
+    /textyoffset textyoffset cvr def
+    /height height cvr def
+    
+    /barlen barcode length def          % Length of the code
+
+    % Create an array containing the character mappings
+    /encs
+    [ (3211) (2221) (2122) (1411) (1132)
+      (1231) (1114) (1312) (1213) (3112)
+      (111) (1111111)
+    ] def
+
+    % Create a string of the available characters
+    /barchars (0123456789) def
+
+    /mirrormaps
+    [ (000111) (001011) (001101) (001110) (010011)
+      (011001) (011100) (010101) (010110) (011010)
+    ] def
+
+    % Add checksum digit to barcode if length is odd
+    barlen 2 mod 0 ne {
+        % Derive the equivalent UPC-A for its checksum
+        /upcacode (00000000000) 11 string copy def
+        barcode 6 get 48 sub 2 le {
+            upcacode 1 barcode 1 2 getinterval putinterval
+            upcacode 3 barcode 6 1 getinterval putinterval
+            upcacode 8 barcode 3 3 getinterval putinterval
+        } if
+        barcode 6 get 48 sub 3 eq {
+            upcacode 1 barcode 1 3 getinterval putinterval
+            upcacode 9 barcode 4 2 getinterval putinterval
+        } if
+        barcode 6 get 48 sub 4 eq {
+            upcacode 1 barcode 1 4 getinterval putinterval
+            upcacode 10 barcode 5 1 getinterval putinterval
+        } if
+        barcode 6 get 48 sub 5 ge {
+            upcacode 1 barcode 1 5 getinterval putinterval
+            upcacode 10 barcode 6 1 getinterval putinterval
+        } if
+        /checksum 0 def
+        0 1 10 {
+           /i exch def
+           /barchar upcacode i get 48 sub def
+           i 2 mod 0 ne {
+               /checksum checksum barchar add def
+           } {
+               /checksum checksum barchar 3 mul add def
+           } ifelse
+        } for
+        /checksum 10 checksum 10 mod sub 10 mod def
+        /pad barlen 1 add string def    % Create pad one bigger than barcode
+        pad 0 barcode putinterval       % Add barcode to the start of the pad
+        pad barlen checksum 48 add put  % Put ascii for checksum at end of pad
+        /barcode pad def                % barcode=pad
+        /barlen barlen 1 add def        % barlen++
+    } if
+    /txt barlen array def
+    txt 0 [barcode 0 1 getinterval -7 textyoffset textfont textsize 2 sub] put
+
+    % Determine the mirror map based on checksum
+    /mirrormap mirrormaps barcode barlen 1 sub get 48 sub get def
+
+    % Invert the mirrormap if we are using a non-zero number system
+    barcode 0 get 48 eq {
+        /invt mirrormap length string def
+        0 1 mirrormap length 1 sub {
+            /i exch def
+            mirrormap i get 48 eq {
+                invt i 49 put
+            } {
+                invt i 48 put
+            } ifelse
+        } for
+        /mirrormap invt def
+    } if
+
+    /sbs barlen 2 sub 4 mul 10 add string def
+
+    % Put the start character
+    sbs 0 encs 10 get putinterval
+
+    1 1 6 {
+        /i exch def
+        % Lookup the encoding for the each barcode character
+        barcode i 1 getinterval barchars exch search
+        pop                            % Discard true leaving pre
+        length /indx exch def          % indx is the length of pre
+        pop pop                        % Discard seek and post
+        /enc encs indx get def         % Get the indxth encoding
+        mirrormap i 1 sub get 49 eq {  % Reverse enc if 1 in this position in mirrormap        
+            /enclen enc length def
+            /revenc enclen string def
+            0 1 enclen 1 sub {
+                /j exch def
+                /char enc j get def
+                revenc enclen j sub 1 sub char put
+            } for
+            /enc revenc def
+        } if
+        sbs i 1 sub 4 mul 3 add enc putinterval   % Put encoded digit into sbs
+        txt i [barcode i 1 getinterval i 1 sub 7 mul 4 add textyoffset textfont textsize] put
+    } for
+
+    txt 7 [barcode 7 1 getinterval 6 7 mul 11 add textyoffset textfont textsize 2 sub] put
+
+    % Put the end character
+    sbs barlen 2 sub 4 mul 3 add encs 11 get putinterval
+
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) [sbs {48 sub} forall] put
+    includetext {
+        retval (bhs) [height height 12{height .075 sub}repeat height height height] put      
+        retval (bbs) [0 0 12{.075}repeat 0 0 0] put    
+        retval (txt) txt put
+    } {
+        retval (bhs) [17{height}repeat] put      
+        retval (bbs) [17{0}repeat] put    
+    } ifelse
+    retval (opt) useropts put
+    retval (borderbottom) 5 put
+    retval
+
+    end
+
+} bind def
+/upce load 0 1 dict put

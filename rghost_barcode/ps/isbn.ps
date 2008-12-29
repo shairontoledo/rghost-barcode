@@ -1,0 +1,118 @@
+
+% --REQUIRES ean13--
+% --DESC: ISBN
+% --EXAM: 978-1-56592-479
+% --EXOP: includetext guardwhitespace
+% --RNDR: renlinear
+/isbn {
+
+    0 begin
+
+    /options exch def      % We are given an options string
+    /useropts options def
+    /isbntxt exch def      % We are given the isbn text with dashes
+
+    /includetext false def  % Enable/disable ISBN text
+    /isbnfont /Courier def
+    /isbnsize 9 def
+    /isbnpos (unset) def
+    /height 1 def
+    
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    
+    /isbnfont isbnfont cvlit def
+    /isbnsize isbnsize cvr def
+    /height height cvr def
+    isbnpos (unset) eq {
+        /isbnpos height 72 mul 3 add def
+    } {
+        /isbnpos isbnpos cvr def
+    } ifelse
+    
+    % Read the digits from isbntxt and calculate checksums
+    /isbn 13 string def
+    /checksum10 0 def
+    /checksum13 0 def
+    /i 0 def /n 0 def
+    { % loop
+        /isbnchar isbntxt i get 48 sub def
+        isbnchar -3 ne {     % Ignore dashes
+            isbn n isbnchar 48 add put
+            /checksum10 checksum10 10 n sub isbnchar mul add def
+            n 2 mod 0 eq {
+                /checksum13 isbnchar checksum13 add def
+            } {
+                /checksum13 isbnchar 3 mul checksum13 add def
+            } ifelse
+            /n n 1 add def
+        } if
+        /i i 1 add def
+        i isbntxt length eq {exit} if
+    } loop
+
+    % Add the ISBN header to the isbntxt
+    n 9 eq n 10 eq or {
+        /checksum 11 checksum10 11 mod sub 11 mod def
+        /isbn isbn 0 9 getinterval def
+        /pad 18 string def
+    } {
+        /checksum 10 checksum13 10 mod sub 10 mod def
+        /isbn isbn 0 12 getinterval def
+        /pad 22 string def
+    } ifelse
+    pad 0 (ISBN ) putinterval
+    pad 5 isbntxt putinterval  % Add isbntxt to the pad
+
+    % Add checksum digit if isbntxt length is 11 or 15
+    isbntxt length 11 eq isbntxt length 12 eq or 
+    isbntxt length 15 eq or isbntxt length 16 eq or {
+        pad pad length 2 sub 45 put  % Put a dash
+        checksum 10 eq {
+            pad pad length 1 sub checksum 78 add put  % Check digit for 10 is X
+        } {
+            pad pad length 1 sub checksum 48 add put  % Put check digit
+        } ifelse
+    } if
+    /isbntxt pad def                    % isbntxt=pad
+
+    % Convert ISBN digits to EAN-13
+    /barcode 12 string def
+    isbn length 9 eq {        
+        barcode 0 (978) putinterval
+        barcode 3 isbn putinterval
+    } {
+        barcode 0 isbn putinterval
+    } ifelse
+
+    % Get the result of encoding with ean13    
+    /args barcode options ean13 def
+
+    % Add the ISBN text
+    includetext {
+        isbn length 9 eq {
+            /isbnxpos -1 def
+        } {
+            /isbnxpos -12 def
+        } ifelse
+        args (txt) known {
+            /txt args (txt) get def
+            /newtxt txt length 1 add array def
+            newtxt 0 txt putinterval
+            newtxt newtxt length 1 sub [isbntxt isbnxpos isbnpos isbnfont isbnsize] put
+            args (txt) newtxt put
+        } {
+            args (txt) [ [isbntxt isbnxpos isbnpos isbnfont isbnsize] ] put
+        } ifelse
+    } if
+
+    args (opt) useropts put
+    args
+
+    end
+ 
+} bind def
+/isbn load 0 1 dict put

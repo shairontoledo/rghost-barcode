@@ -1,0 +1,121 @@
+
+% --DESC: Plessey
+% --EXAM: 01234ABCD
+% --EXOP: includetext includecheckintext
+% --RNDR: renlinear
+/plessey {
+
+    0 begin                  % Confine variables to local scope
+
+    /options exch def        % We are given an option string
+    /useropts options def
+    /barcode exch def        % We are given a barcode string
+
+    /includetext false def    % Enable/disable text
+    /includecheckintext false def
+    /textfont /Courier def
+    /textsize 10 def
+    /textyoffset -7 def
+    /height 1 def
+    
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    
+    /textfont textfont cvlit def
+    /textsize textsize cvr def
+    /textyoffset textyoffset cvr def
+    /height height cvr def
+    
+    % Create an array containing the character mappings
+    /encs
+    [ (13131313) (31131313) (13311313) (31311313)
+      (13133113) (31133113) (13313113) (31313113)
+      (13131331) (31131331) (13311331) (31311331)
+      (13133131) (31133131) (13313131) (31313131)
+      (31311331) (331311313)
+    ] def
+
+    % Create a string of the available characters
+    /barchars (0123456789ABCDEF) def
+
+    /barlen barcode length def     % Length of the code
+    /sbs barlen 8 mul 33 add string def
+    /txt barlen 2 add array def
+    /checkbits barlen 4 mul 8 add array def
+    checkbits barlen 4 mul [ 0 0 0 0 0 0 0 0 ] putinterval
+
+    % Put start character
+    sbs 0 encs 16 get putinterval
+
+    0 1 barlen 1 sub {
+        /i exch def
+        % Lookup the encoding for the each barcode character
+        barcode i 1 getinterval barchars exch search
+        pop                                % Discard true leaving pre
+        length /indx exch def              % indx is the length of pre
+        pop pop                            % Discard seek and post
+        /enc encs indx get def             % Get the indxth encoding
+        sbs i 8 mul 8 add enc putinterval  % Put encoded digit into sbs
+        txt i [barcode i 1 getinterval i 16 mul 16 add textyoffset textfont textsize] put
+        checkbits i 4 mul [
+                indx 1 and
+                indx -1 bitshift 1 and
+                indx -2 bitshift 1 and
+                indx -3 bitshift
+        ] putinterval
+    } for
+
+    % Checksum is last 8 bits of a CRC using a salt
+    /checksalt [ 1 1 1 1 0 1 0 0 1 ] def
+    0 1 barlen 4 mul 1 sub {
+        /i exch def
+        checkbits i get 1 eq {
+            0 1 8 {
+                /j exch def
+                checkbits i j add checkbits i j add get checksalt j get xor put
+            } for
+        } if
+    } for
+
+    % Calculate the value of the checksum digits
+    /checkval 0 def
+    0 1 7 {
+        /i exch def
+        /checkval checkval 2 7 i sub exp cvi checkbits barlen 4 mul i add get mul add def
+    } for
+
+    % Put the checksum characters
+    /checksum1 checkval -4 bitshift def
+    /checksum2 checkval 15 and def
+    sbs barlen 8 mul 8 add encs checksum1 get putinterval
+    sbs barlen 8 mul 16 add encs checksum2 get putinterval
+    includecheckintext {
+        txt barlen [barchars checksum1 1 getinterval barlen 16 mul 16 add textyoffset textfont textsize] put
+        txt barlen 1 add [barchars checksum2 1 getinterval barlen 1 add 16 mul 16 add textyoffset textfont textsize] put
+    } {
+        txt barlen [( ) barlen 16 mul 16 add textyoffset textfont textsize] put
+        txt barlen 1 add [( ) barlen 1 add 16 mul 16 add textyoffset textfont textsize] put
+    } ifelse
+
+    % Put end character
+    sbs barlen 8 mul 24 add encs 17 get putinterval
+
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) [sbs {48 sub} forall] put
+    retval (bhs) [sbs length 1 add 2 idiv {height} repeat] put
+    retval (bbs) [sbs length 1 add 2 idiv {0} repeat] put
+    includetext {
+        retval (txt) txt put
+    } if
+    retval (opt) useropts put
+    retval
+
+    end
+
+} bind def
+/plessey load 0 1 dict put

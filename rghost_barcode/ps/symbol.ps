@@ -1,0 +1,49 @@
+
+% --DESC: Miscellaneous symbols
+% --EXAM: fima
+% --EXOP: backgroundcolor=DD000011
+% --RNDR: renlinear
+/symbol {
+
+    0 begin            % Confine variables to local scope
+
+    /options exch def  % We are given an option string
+    /barcode exch def  % We are given a barcode string
+
+    barcode (fima) eq {
+        /sbs [2.25 2.25 2.25 11.25 2.25 11.25 2.25 2.25 2.25] def
+        /bhs [.625 .625 .625 .625 .625] def
+        /bbs [0 0 0 0 0] def
+    } if
+
+    barcode (fimb) eq {
+        /sbs [2.25 6.75 2.25 2.25 2.25 6.25 2.25 2.25 2.25 6.75 2.25] def
+        /bhs [.625 .625 .625 .625 .625 .625] def
+        /bbs [0 0 0 0 0 0] def
+    } if
+
+    barcode (fimc) eq {
+        /sbs [2.25 2.25 2.25 6.75 2.25 6.75 2.25 6.75 2.25 2.25 2.25] def
+        /bhs [.625 .625 .625 .625 .625 .625] def
+        /bbs [0 0 0 0 0 0] def
+    } if
+    
+    barcode (fimd) eq {
+        /sbs [2.25 2.25 2.25 2.25 2.25 6.75 2.25 6.75 2.25 2.25 2.25 2.25 2.25] def
+        /bhs [.625 .625 .625 .625 .625 .625 .625] def
+        /bbs [0 0 0 0 0 0 0] def
+    } if
+    
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) sbs put
+    retval (bhs) bhs put
+    retval (bbs) bbs put
+    retval (opt) options put
+    retval
+
+    end
+
+} bind def
+/symbol load 0 1 dict put

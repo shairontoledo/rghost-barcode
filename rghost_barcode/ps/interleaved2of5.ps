@@ -1,0 +1,132 @@
+
+% --DESC: Interleaved 2 of 5 (ITF)
+% --EXAM: 24012345678905
+% --EXOP: showborder borderwidth=4 borderleft=15 borderright=15 height=0.5 includecheck includetext includecheckintext textyoffset=-10
+% --RNDR: renlinear
+/interleaved2of5 {
+
+    0 begin         % Confine variables to local scope
+
+    /options exch def               % We are given an option string
+    /useropts options def
+    /barcode exch def               % We are given a barcode string
+
+    /includecheck false def         % Enable/disable checkdigit
+    /includetext false def          % Enable/disable text
+    /includecheckintext false def
+    /textfont /Courier def
+    /textsize 10 def
+    /textyoffset -7 def
+    /height 1 def
+    
+    % Parse the input options
+    options {
+        token false eq {exit} if dup length string cvs (=) search
+        true eq {cvlit exch pop exch def} {cvlit true def} ifelse
+    } loop
+    
+    /textfont textfont cvlit def
+    /textsize textsize cvr def
+    /textyoffset textyoffset cvr def
+    /height height cvr def
+    
+    /barlen barcode length def      % Length of the code
+
+    % Prefix 0 to barcode if length is even and including checkdigit
+    % or length is odd and not including checkdigit
+    barlen 2 mod 0 eq includecheck and          % even & includecheck
+    barlen 2 mod 0 ne includecheck not and or { % odd  & !includecheck
+        /pad barlen 1 add string def  % Create pad one bigger than barcode
+        pad 0 48 put                  % Put ascii 0 at start of pad
+        pad 1 barcode putinterval     % Add barcode to the end of pad
+        /barcode pad def              % barcode=pad
+        /barlen barlen 1 add def      % barlen++
+    } if
+
+    % Add checksum to end of barcode
+    includecheck {
+        /checksum 0 def
+        0 1 barlen 1 sub {
+            /i exch def
+            i 2 mod 0 eq {
+                /checksum checksum barcode i get 48 sub 3 mul add def
+            } {
+                /checksum checksum barcode i get 48 sub add def
+            } ifelse
+        } for
+        /checksum 10 checksum 10 mod sub 10 mod def
+        /pad barlen 1 add string def    % Create pad one bigger than barcode
+        pad 0 barcode putinterval       % Add barcode to the start of pad
+        pad barlen checksum 48 add put  % Add checksum to end of pad
+        /barcode pad def                % barcode=pad
+        /barlen barlen 1 add def        % barlen++
+    } if
+
+    % Create an array containing the character mappings
+    /encs
+    [ (11331) (31113) (13113) (33111) (11313)
+      (31311) (13311) (11133) (31131) (13131)
+      (1111)  (3111)
+    ] def
+
+    % Create a string of the available characters
+    /barchars (0123456789) def
+    /sbs barlen 5 mul 8 add string def
+    /txt barlen array def
+
+    % Put the start character
+    sbs 0 encs 10 get putinterval
+
+    0 2 barlen 1 sub {
+    /i exch def
+        % Lookup the encodings for two consecutive barcode characters
+        barcode i 1 getinterval barchars exch search
+        pop                           % Discard true leaving pre
+        length /indx exch def         % indx is the length of pre
+        pop pop                       % Discard seek and post
+        /enca encs indx get def       % Get the indxth encoding
+
+        barcode i 1 add 1 getinterval barchars exch search
+        pop                           % Discard true leaving pre
+        length /indx exch def         % indx is the length of pre
+        pop pop                       % Discard seek and post
+        /encb encs indx get def       % Get the indxth encoding
+
+        % Interleave the two character encodings
+        /intl enca length 2 mul string def
+        0 1 enca length 1 sub {
+            /j exch def
+            /achar enca j get def
+            /bchar encb j get def
+            intl j 2 mul achar put
+            intl j 2 mul 1 add bchar put
+        } for
+
+        sbs i 5 mul 4 add intl putinterval   % Put encoded digit into sbs
+        txt i [barcode i 1 getinterval i 9 mul 4 add textyoffset textfont textsize] put
+        includecheck includecheckintext not and barlen 2 sub i eq and {
+            txt i 1 add [( ) i 1 add 9 mul 4 add textyoffset textfont textsize] put
+        } {
+            txt i 1 add [barcode i 1 add 1 getinterval i 1 add 9 mul 4 add textyoffset textfont textsize] put
+        } ifelse
+    } for
+
+    % Put the end character
+    sbs barlen 5 mul 4 add encs 11 get putinterval
+
+    % Return the arguments
+    /retval 8 dict def
+    retval (ren) (renlinear) put
+    retval (sbs) [sbs {48 sub} forall] put
+    retval (bhs) [sbs length 1 add 2 idiv {height} repeat] put
+    retval (bbs) [sbs length 1 add 2 idiv {0} repeat] put
+    includetext {
+        retval (txt) txt put
+    } if
+    retval (opt) useropts put
+    retval
+
+    end
+
+} bind def
+/interleaved2of5 load 0 1 dict put
