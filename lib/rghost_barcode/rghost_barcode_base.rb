@@ -24,9 +24,6 @@ module RGhost::Barcode
     
     #using the framework unit
     def add_with_unit(key,value)
-     
-    
-    
       v=if RGhost::Config::GS[:unit] == RGhost::Units::Cm
         (value.to_f/2.545)
       end
@@ -40,8 +37,6 @@ module RGhost::Barcode
       map
     end
     def make() end #prototype
-    
-    
   end
   
   
@@ -159,7 +154,7 @@ module RGhost::Barcode
   # doc=Document.new
   # doc.barcode_code39('0123456789')
   class Base <RGhost::Barcode::Parameter
-
+    include RGhost::RubyToPs
     attr_reader :text, :guard, :border ,:point
   
     def initialize(barcode_string,options={})
@@ -168,7 +163,9 @@ module RGhost::Barcode
       @options=options.dup
       @options[:x]||= :limit_left
       @options[:y]||= :current_row
-      @barcode=barcode_string
+      
+      @barcode=(barcode_string.to_s == '') ? "Data Missing" : barcode_string
+      #@barcode =to_string(@barcode)
       @text   = RGhost::Barcode::Text.new(@options[:text])
       
       @guard  = RGhost::Barcode::Guard.new(@options[:guard])
@@ -178,8 +175,7 @@ module RGhost::Barcode
       @scale=RGhost::Scale.new @options[:scale][0],@options[:scale][1] if @options[:scale]
       [:scale, :enable, :text,:guard,:border, :x, :y, :rotate].each{|v| @options.delete v}
       super(@options)
-      @self_name=self.class.to_s.downcase.split(/::/).last
-      RGhost::Config::GS[:preload] << @self_name
+      @self_name=self.class.to_s.downcase.split(/::/).last.gsub(/_/,'-')
     end
   
     def make
@@ -192,7 +188,12 @@ module RGhost::Barcode
         when :background then add_color("backgroundcolor", value) 
         when :width, :height then add_with_unit(key,value)
           #when :inkspread then  add(key,value)
-        else   add(key,value)
+        else   
+          if (value == true)
+            add_single(key)
+            next
+          end
+          add(key,value)
         end
       end
       
@@ -200,11 +201,8 @@ module RGhost::Barcode
     
     def ps
       formated_params=[ @text.map, @border.map, @guard.map, self.map].join(" ")
-      
-      "gsave newpath #{@point.ps} #{@rotate} #{@scale} 0 0 moveto (#{@barcode}) (#{formated_params}) #{@self_name} barcode closepath grestore"
+      "gsave newpath #{@point.ps} #{@rotate} #{@scale} 0 0 moveto (#{@barcode}) (#{formated_params}) /#{@self_name} /uk.co.terryburton.bwipp findresource exec closepath grestore"
     end
-    
-    
   end
 
 end
